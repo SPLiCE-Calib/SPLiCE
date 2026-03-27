@@ -13,7 +13,31 @@ close all;
 % Rotate the checker board more than 90 degrees
 
 
+%% Minji Kim : minji0110@gm.gist.ac.kr
 
+% =========================================================================
+% Crazyflie Camera-Sensor Extrinsic Calibration Pipeline
+%
+% [Pipeline Structure]
+%   Part 1 : Remove outliers from raw multiranger sensor data and save
+%   Part 2 : Compute 3D coordinates based on checkerboard rotation model
+%   Part 3 : Match images to timestamps from 2D line txt files and copy
+%   Part 4 : Remove unmatched rows from 3D point file (reverse filtering)
+%   Part 5 : Re-select images and txt files based on final 3D point timestamps
+%   Part 6 : Match 3D points and 2D lines by timestamp
+%   Part 7 : Two-stage extrinsic parameter optimization (R, t)
+%   Part 8 : Reprojection visualization and result export
+% =========================================================================
+
+
+% =========================================================================
+% PART 1 : Raw Data Loading and Outlier Removal
+%
+% [Input]  multiranger_data_with.txt
+%          col1=X(dist mm), col2=Y, col3=Z, col4=timestamp, col5=image trigger(0/1)
+% [Process] Remove rows where X > 30000 (sensor error) and overwrite original file
+% [Output] multiranger_data_with.txt (overwritten, outliers removed)
+% =========================================================================
 %% read data (multiranger front)
 
 filename_pointcloud = '/home/minjikim/calibration/data/input_calibrationboard/1118-3/multiranger_data_with.txt';
@@ -37,19 +61,10 @@ Z1 = data_pointcloud(:, 3);
 
 
 
+x1 = find_x1(X1, 200);
 
 
-
-%% Data collection and preprocessing select the end point and make new data_with file 
-% 
-% EndPointIndexFirst = 371;
-% EndPointIndexSecond = 365; 
-% EndPointIndexThird = 563;
-% X1candidate = X1(EndPointIndexFirst);
-% X2candidate = X1(EndPointIndexSecond);
-% X3candidate = X1(EndPointIndexThird);
-% averageValue = mean([X1candidate, X2candidate, X3candidate]);
-removeIndex=X1>792;
+removeIndex=X1>x1;
 
 
 data_pointcloud(removeIndex,:)=[];
@@ -61,17 +76,24 @@ X = data_pointcloud(:, 1);
 Y = data_pointcloud(:, 2);
 Z = data_pointcloud(:, 3);
 
-
-%% calculate rotation angle and circle center 
+% =========================================================================
+% PART 2 : 3D Coordinate Calculation Based on Checkerboard Rotation Model
+%
+% [Assumption] Checkerboard rotates as an arc of radius Lb around fixed axis at x2
+% [Process]    Derive line equation from sensor pos → measured X
+%              Find intersection of line and arc (quadratic) → compute 3D points
+% [Output] calculated_3Dpoints_for_video.txt
+%          col1:index, col2:timestamp, col3:Lx1, col4:Ly1, col5:Lx2,
+%          col6:Ly2, col7:Lx3, col8:Ly3, col9:x_line_2, col10:y_line_2
+% =========================================================================
+%% calculate rotation angle and circle center
 
 Lb=300;  % board length
 Lh=300;  % hole length 
 
-diff_X=diff(X);
-
-%insert here : select the end point algorithm 
-x1=796;
+%diff_X=diff(X);
 x2=X(1);
+%select the end point algorithm 
 subset_data=X(1:10,:);
 average_value=mean(subset_data);
 line_length=x1-x2;
@@ -145,8 +167,16 @@ fclose(fileID);
 
 
 
+% =========================================================================
+% PART 3 : Image-Timestamp Matching and File Copy (based on 2D line txt files)
+%
+% [Input]  ForDrawing/s3-line/*.txt  (2D line files, timestamp embedded in filename)
+%          undistorted/*.jpg          (lens-undistorted camera images)
+% [Process] Extract timestamps from txt filenames
+%           Match to image filenames within ±3ms tolerance
+% [Output] finaldata/ (matched images and txt files copied)
+% =========================================================================
 
-%% PLUS 
 clear;
 clc;
 
@@ -211,8 +241,15 @@ for i = 1:length(timestamps)
         end
     end
 end
-
-% output_3Dpoints_file에서 조건에 맞지 않는 행 제거
+% =========================================================================
+% PART 4 : Reverse Filtering of 3D Point File
+%
+% [Purpose] Remove rows from 3D point file that have no matching image timestamp
+% [Process] Compare col2 (timestamp) of each row against image timestamps (±3ms)
+%           Keep only rows with a matching image → overwrite original file
+% [Warning] Overwrites original file directly — no backup created
+%           Delimiter changes from comma (Part 2) to space here
+% =========================================================================
 if exist(output_3Dpoints_file, 'file')
     data_3Dpoints = readmatrix(output_3Dpoints_file); % 3D 포인트 데이터 읽기
 
@@ -234,7 +271,16 @@ end
 
 
 
-
+% =========================================================================
+% PART 5 : Final Image Re-selection Based on Filtered 3D Point Timestamps
+%
+% [Purpose] After Part 4 filtering, re-copy only the images and 2D txt files
+%           that correspond to surviving 3D point timestamps
+% [Difference from Part 3]
+%   Part 3 : driven by 2D txt file timestamps → selects images
+%   Part 5 : driven by 3D point timestamps    → selects images (post-filtering)
+% [Note]  txt_input_folder points to selected/2Dlines, different from Part 3
+% =========================================================================
 %% Load images
 
 data=readmatrix(output_3Dpoints_file);
@@ -278,9 +324,16 @@ for i = 1:length(timestamps)
     end
 end
 
-
-
-%% Matching the image and point %%%HERERERERE
+% =========================================================================
+% PART 6 : 3D Point and 2D Line Matching
+%
+% [Input]  calculated_3Dpoints.txt  — 3D point coordinates with timestamps
+%          finalselected/*.txt      — 2D line data per image (timestamp in filename)
+% [Process] For each 2D line txt file, find the 3D point row within ±4ms
+%           Store matched pairs into points_3D_list and lines_2D_list
+% [Output] points_3D_list : cell array of matched 3D point sets
+%          lines_2D_list  : cell array of corresponding 2D line data
+% =========================================================================
 output_3Dpoints_file='/home/minjikim/calibration/data/output_image/0822-6/selected/3Dpoints/calculated_3Dpoints.txt';
 points_data=readmatrix(output_3Dpoints_file);
 folder_path = '/home/minjikim/calibration/data/output_image/0822-6/selected/finalselected';
@@ -295,10 +348,10 @@ imagesize=[195,300];
 
 
 R_init=[
-    0.25,-1,0;
-    0.2,0.08,-1;
-    0.97,0,0];
-t_init= [10;0;0];
+    1,0,0;
+    0,1,0;
+    0,0,1];
+t_init= [0;0;0];
 
 % points_3D=[
 %     Lx1,Ly1,0;
@@ -344,8 +397,15 @@ disp(points_3D_list);
 disp(points_3D);
 
 
-
-%% optimization start
+% =========================================================================
+% PART 7 : Two-Stage Extrinsic Parameter Optimization (R, t)
+%
+% [Method]  Levenberg-Marquardt via lsqnonlin
+% [Stage 1] error_function_with    — optimizes R, t from initial guess
+% [Stage 2] function_error_second  — refines using Stage 1 result as init
+% [Params]  R (3x3 rotation), t (3x1 translation) → flattened to 12-element vector
+% [Note]    R is not constrained to SO(3) during optimization
+% =========================================================================
 objective_function = @(params) error_function_with(reshape(params(1:9), [3, 3]), params(10:12), points_3D_list, lines_2D_list, K);
 params_init = [R_init(:); t_init];
 
@@ -368,25 +428,28 @@ t_optimized2 = params_optimized2(10:12);
 disp(R_optimized2);
 disp(t_optimized2);
 
-
-%% reprojection final points 
+% =========================================================================
+% PART 8 : Reprojection Visualization and Result Export
+%
+% [Process] For each matched image:
+%   Step 1. Project 3D points onto image plane using optimized R, t
+%   Step 2. Draw projected points as circles on the image (yellow = optimized)
+%   Step 3. Save annotated image to figure output folder
+%   Step 4. Write projected 2D coordinates to txt files (opti_1, opti_2 folders)
+%
+% [Note] R_optimized is hardcoded inside the loop — overrides lsqnonlin result
+%        Commented-out blocks show T1 (initial guess) and T2 (stage 2) projections
+% =========================================================================
 figure;
 hold on;
 
 for k = 1:length(files)
     img = imread(fullfile(folder_path, strrep(files(k).name, '.txt', '.jpg')));
     points = points_3D_list{k};
-    R_optimized=  [-0.1773,-0.9814,0.0000;
-   -0.2044,0.0650,-1.0000;
-    1.0741,0.0712,-0.0000];
     T = [R_optimized, t_optimized; 0, 0, 0, 1];
     %T1 = [R_init, t_init; 0, 0, 0, 1];
-    R_figure=[
-    0.15,-1,0;
-    0.1,0.05,-0.5;
-    0.77,0,0.5];
-    t_figure= [9;0;0];
-    T1 = [R_figure, t_figure; 0, 0, 0, 1];
+
+    T1 = [R_optimized0, t_optimized0; 0, 0, 0, 1];
     T2= [R_optimized2, t_optimized2; 0, 0, 0, 1];
     
     imshow(img);
@@ -404,20 +467,13 @@ for k = 1:length(files)
     plot(x2-10, y2, 'mo', 'MarkerSize', 5, 'LineWidth', 2);
    
 
-    % [projected3, valid3] = projection(points, K, T2, D, imagesize, false);
-    % x3 = projected3(1, 1);
-    % y3 = projected3(2, 2);
-    % plot(x3, y3, 'go', 'MarkerSize', 5, 'LineWidth', 2);
-    % 각 점의 좌표와 반지름을 설정하여 원을 그립니다
     circles1 = [x, y, repmat(2, size(x))]; % 첫 번째 원 세트 (노란색)
-    circles2 = [x2-30, y2, repmat(2, size(x2))]; % 두 번째 원 세트 (자홍색)
-%    circles3 = [x3, y3, repmat(2, size(x3))]; % 세 번째 원 세트 (녹색)
-
+    circles2 = [x2, y2, repmat(2, size(x2))]; % 두 번째 원 세트 (자홍색)
     % 원을 그리면서 선 두께 지정
     img = insertShape(img, 'circle', circles1, 'Color', 'yellow', 'LineWidth', 2);
     %img = insertShape(img, 'circle', circles2, 'Color', 'magenta', 'LineWidth', 2);
     %img = insertShape(img, 'circle', circles3, 'Color', 'green', 'LineWidth', 2);
-    % img = insertShape(img, 'Line', [x2-30, y2, x2, y2], 'Color', 'red', 'LineWidth', 6);
+    % img = insertShape(img, 'Line', [x2, y2, x2, y2], 'Color', 'red', 'LineWidth', 6);
     % img = insertShape(img, 'Line', [x1, y1, x2, y2], 'Color', 'red', 'LineWidth', 6);
 
 
@@ -468,7 +524,4 @@ for k = 1:length(files)
 end
 
 hold off;
-
-
-%% Evaluation_pixel error 
 
