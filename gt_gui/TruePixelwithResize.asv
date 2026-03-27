@@ -1,0 +1,118 @@
+function save_pixel_values_gui_with_predefined_folder
+    
+    imgFolder = '/home/minjikim/calibration/data/output_image/0822-6/undistorted';
+    
+    fig = figure('Name', 'Pixel Value Saver', ...
+                 'NumberTitle', 'off', ...
+                 'MenuBar', 'none', ...
+                 'ToolBar', 'none', ...
+                 'Position', [100, 100, 800, 600]); % 크기를 조금 더 크게 설정했습니다.
+
+    % 원본 이미지 패널
+    imgPanel = uipanel('Parent', fig, ...
+                       'Position', [0.05, 0.2, 0.45, 0.75]);
+    
+    % 확대 이미지 패널
+    zoomPanel = uipanel('Parent', fig, ...
+                        'Position', [0.55, 0.2, 0.4, 0.75]);
+
+    uicontrol('Parent', fig, ...
+              'Style', 'pushbutton', ...
+              'String', 'Select & Save', ...
+              'Position', [100, 30, 150, 40], ...
+              'Callback', @save_coordinates_callback);
+    
+    uicontrol('Parent', fig, ...
+              'Style', 'pushbutton', ...
+              'String', 'Next', ...
+              'Position', [300, 30, 100, 40], ...
+              'Callback', @next_image_callback);
+
+    uicontrol('Parent', fig, ...
+              'Style', 'pushbutton', ...
+              'String', 'Zoom', ...
+              'Position', [450, 30, 100, 40], ...
+              'Callback', @zoom_image_callback);
+
+    % 이미지가 표시될 축
+    imgAxes = axes('Parent', imgPanel, ...
+                   'Units', 'normalized', ...
+                   'Position', [0.1, 0.1, 0.8, 0.8]);
+
+    % 확대 이미지가 표시될 축
+    zoomAxes = axes('Parent', zoomPanel, ...
+                    'Units', 'normalized', ...
+                    'Position', [0.1, 0.1, 0.8, 0.8]);
+
+    imgFiles = {};
+    currentImgIndex = 0;
+    img = [];
+
+    imgFiles = dir(fullfile(imgFolder, '*.jpg'));
+    imgFiles = [imgFiles; dir(fullfile(imgFolder, '*.png'))];
+    imgFiles = [imgFiles; dir(fullfile(imgFolder, '*.bmp'))];
+    
+    if isempty(imgFiles)
+        errordlg('No image files found in the specified folder.', 'Error');
+        return;
+    end
+    
+    currentImgIndex = 1;
+    load_image();
+
+    function load_image()
+        if currentImgIndex > 0 && currentImgIndex <= length(imgFiles)
+            imgFilePath = fullfile(imgFolder, imgFiles(currentImgIndex).name);
+            img = imread(imgFilePath);
+            imshow(img, 'Parent', imgAxes);
+            title(imgAxes, imgFiles(currentImgIndex).name, 'Interpreter', 'none');
+        else
+            errordlg('No more images to display.', 'Error');
+        end
+    end
+
+    function save_coordinates_callback(~, ~)
+        if isempty(img)
+            errordlg('Please load an image first.', 'Error');
+            return;
+        end
+
+        [x, y] = ginput(1); 
+
+        x = round(x); 
+        y = round(y);
+        if x > 0 && y > 0 && x <= size(img, 2) && y <= size(img, 1)
+            [~, imgName, ~] = fileparts(imgFiles(currentImgIndex).name);
+            txtFolder = '/home/minjikim/calibration/data/output_image/0822-6/selected/reprojection/truth';
+            save_path = fullfile(txtFolder, [imgName '.txt']);
+            fileID = fopen(save_path, 'a');
+            fprintf(fileID, '%d %d\n', x, y);
+            fclose(fileID);
+            msgbox('Save', 'Success');
+        end
+    end
+
+    function next_image_callback(~, ~)
+        if currentImgIndex < length(imgFiles)
+            currentImgIndex = currentImgIndex + 1;
+            load_image();
+        else
+            msgbox('No more images in the folder.', 'End of Images');
+        end
+    end
+
+    function zoom_image_callback(~, ~)
+        if isempty(img)
+            errordlg('Please load an image first.', 'Error');
+            return;
+        end
+
+        % 사용자가 영역을 선택하도록 함
+        rect = getrect(imgAxes); % 사용자가 선택한 영역 (x, y, width, height)
+
+        % 선택한 영역을 자르고 확대된 이미지로 표시
+        zoomedImg = imcrop(img, rect);
+        imshow(zoomedImg, 'Parent', zoomAxes);
+       
+    end
+end
