@@ -17,7 +17,7 @@ and the detected 2D lines via two-stage Levenberg-Marquardt optimization.
 ## Calibration Method
 
 <p align="center">
-  <img src="SPLiCE-Calib/SPLiCE/boardimage/calibrationboard1.png" width="30%"/>
+  <img src="Sboardimage/calibrationboard1.png" width="30%"/>
   <img src="SPLiCE-Calib/SPLiCE/boardimage/calibrationboard2.png" width="30%"/>
   <img src="SPLiCE-Calib/SPLiCE/boardimage/calibrationboard3.png" width="30%"/>
 </p>
