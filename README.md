@@ -15,7 +15,7 @@ Extrinsic parameters are estimated by minimizing the reprojection error between 
 and the detected 2D lines via two-stage Levenberg-Marquardt optimization.
 
 ## Calibration Method
-![](boardimage/calibrationboard1.jpg)
+![](boardimage/calibrationboard1.png)
 
 ### Calibration Board Dimensions
 - Overall size : 750mm × 520mm
