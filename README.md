@@ -14,13 +14,22 @@ the sensor data using a rotation arc model, and 2D line features are extracted f
 Extrinsic parameters are estimated by minimizing the reprojection error between the 3D points 
 and the detected 2D lines via two-stage Levenberg-Marquardt optimization.
 
-## Pipeline
-1. Sensor data preprocessing and outlier removal
-2. 3D coordinate computation from checkerboard rotation model
-3. 2D line detection from camera images (LSD / Hough Transform)
-4. Image-timestamp synchronization and data matching
-5. Two-stage extrinsic parameter optimization (R, t)
-6. Reprojection visualization and error evaluation
+## Calibration Method
+
+### Setup
+<p align="center">
+  <img src="boardimage/calibrationboard1.jpg" width="30%"/>
+  <img src="boardimage/calibrationboard2.jpg" width="30%"/>
+  <img src="boardimage/calibrationboard3.jpg" width="30%"/>
+</p>
+
+### Requirements
+- Position the Crazyflie **10~15cm** above the ground
+- Place the checkerboard (788mm × 545mm) at **35~55cm** distance
+- Stay at the starting point for at least **20 seconds**
+- Rotate the checkerboard back and forth **more than 3 times**
+- Rotate the checkerboard **more than 90 degrees**
+
 
 ## Requirements
 - MATLAB (Image Processing Toolbox, Optimization Toolbox)
