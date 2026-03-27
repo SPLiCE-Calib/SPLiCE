@@ -16,7 +16,7 @@ and the detected 2D lines via two-stage Levenberg-Marquardt optimization.
 
 ## Calibration Method
 
-  <img src="boardimage/calibrationboard.jpg" width="50%"/>
+  <img src="boardimage/calibrationboard.png" width="50%"/>
 
 
 ### Calibration Board Dimensions
