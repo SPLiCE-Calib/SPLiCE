@@ -16,11 +16,7 @@ and the detected 2D lines via two-stage Levenberg-Marquardt optimization.
 
 ## Calibration Method
 <p align="center">
-  <img src="boardimage/calibrationboard1.png" width="50%"/>
-</p>
-  <img src="boardimage/calibrationboard2.png" width="30%"/>
-  <img src="boardimage/calibrationboard3.png" width="30%"/>
-</p>
+  <img src="boardimage/calibrationboard.png" width="50%"/>
 ### Calibration Board Dimensions
 - Overall size : 750mm × 520mm
 - Hole size : 300mm × 300mm
